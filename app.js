@@ -8,7 +8,18 @@ const cors = require("koa2-cors");
 const app = new Koa();
 const router = new KoaRouter();
 
-const { getLists, handleSave, addData, handleSort, handleDel } = require('./controlers/index');
+const {
+  getLists,
+  handleSave,
+  addData,
+  handleSort,
+  handleDel,
+  getUser,
+  getBusiness,
+  getFormList,
+  addForm,
+  delForm
+} = require('./controlers/index');
 
 // Json Prettier middleware
 app.use(json());
@@ -26,6 +37,16 @@ router.post('/sort', handleSort)
 router.post('/save', handleSave)
 
 router.get('/delete', handleDel)
+
+router.get('/user', getUser)
+
+router.get('/business', getBusiness)
+
+router.get('/getFormList', getFormList);
+
+router.post('/addForm', addForm);
+
+router.post('/delForm', delForm);
 
 // Simple Middleware Example
 // app.use(async (ctx) => (ctx.body = "hello world!"));
