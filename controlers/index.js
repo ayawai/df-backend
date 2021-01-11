@@ -1,11 +1,12 @@
 const mysql = require("mysql");
 
 const connection = mysql.createConnection({
-  host: "www.cumquats.cn",
+  host: "106.52.176.121",
   port: "3306",
   user: "root",
   password: "aptMes123",
-  database: "config_dynamic"
+  database: "config_dynamic",
+  multipleStatements: true
 });
 
 connection.connect(err => {
@@ -44,6 +45,37 @@ const getBusiness = ctx => {
     })
   })
 }
+// 获取表单信息
+const getFormInfo = ctx => {
+  return new Promise(resolve => {
+    let id = ctx.query.id;
+    const sql = `SELECT * FROM df_form WHERE id=${id}`;
+    connection.query(sql, (err, result) => {
+      if (err) throw err;
+      ctx.body = {
+        code: 0,
+        data: result[0]
+      }
+      resolve();
+    })
+  })
+}
+// 获取表单数据
+const getFormData = ctx => {
+  return new Promise(resolve => {
+    let id = ctx.query.id;
+    const sql = `SELECT * FROM df_form_data WHERE form_id=${id}`;
+    connection.query(sql, (err, result) => {
+      if (err) throw err;
+      ctx.body = {
+        code: 0,
+        data: result
+      }
+      resolve();
+    })
+  })
+}
+
 
 // 获取业务对应表单
 const getFormList = ctx => {
@@ -54,7 +86,7 @@ const getFormList = ctx => {
     let values;
     if (id) {
       sql = `SELECT * FROM df_form WHERE fid=? limit ?,?;`;
-      values =  [id, +page, +pageSize]
+      values =  [id, page - 1, +pageSize]
     } else {
       sql = `SELECT * FROM df_form limit ?,?;`;
       values = [(page * pageSize) - pageSize, +pageSize]
@@ -73,10 +105,10 @@ const getFormList = ctx => {
 // 获取控件列表
 const getLists = ctx => {
   return new Promise(resolve => {
-    let name = ctx.query.name;
-    const sql = `SELECT * FROM dynamic_config ORDER BY sort`;
-  
-    connection.query(sql, (err, result) => {
+    let {page, pageSize, formId} = ctx.query;
+    const sql = `SELECT * FROM dynamic_config WHERE form_id=? ORDER BY sort limit ?,?`;
+    let values = [formId, (page * pageSize) - pageSize, +pageSize]
+    connection.query(sql, values, (err, result) => {
       if (err) throw err;
       ctx.body = {
         code: 0,
@@ -90,11 +122,11 @@ const getLists = ctx => {
 const addData = ctx => {
   console.log(ctx.request.body);
   return new Promise(resolve => {
-    let {name, placeholder, defaultValue, select, options, sort, required, fid, field} = ctx.request.body;
-    const sql = `INSERT INTO dynamic_config(code, name, placeholder, default_value, options, sort, isRequired, fid, field)
+    let {name, placeholder, defaultValue, select, options, sort, required, fid, field, formId} = ctx.request.body;
+    const sql = `INSERT INTO dynamic_config(code, name, placeholder, default_value, options, sort, isRequired, fid, field, form_id)
     VALUES ?`;
     const values = [
-      [select, name, placeholder, defaultValue, options, sort, required, fid, field]
+      [select, name, placeholder, defaultValue, options, sort, required, fid, field, formId]
     ];
     connection.query(sql, [values], (err, result) => {
       if (err) throw err;
@@ -138,7 +170,8 @@ const addForm = ctx => {
 const delForm = ctx => {
   return new Promise(resolve => {
     const {id} = ctx.request.body;
-    const sql = `DELETE FROM df_form WHERE id = '${id}'`;
+    const sql = `DELETE FROM df_form WHERE id = '${id}'; DELETE FROM dynamic_config WHERE form_id = ${id}`;
+    // ; DELETE FROM dynamic_config WHERE form_id = ${id}
     connection.query(sql, (err, result) => {
       if (err) throw err;
       ctx.body = {
@@ -169,15 +202,15 @@ const handleSave = ctx => {
   return new Promise(resolve => {
     let bd = ctx.request.body;
     let conReturn = [];
+    console.log(bd)
     Object.keys(bd).forEach(item => {
-      if (bd.fid !== item) {
-        const sql = "UPDATE dynamic_config SET default_value = ? where fid = ? and field = ?";
-        const cr = connection.query(sql, [bd[item], bd.fid, item], (err, result) => {
-          if (err) throw err;
-          resolve();
-        })
-        conReturn.push(cr)
-      }
+      let sql = `INSERT INTO df_form_data(form_id, field_name, row_id, value)
+    VALUES (?, ?, ?, ?)`;
+      const cr = connection.query(sql, [bd.formId, item, bd.uuid, bd[item]], (err, result) => {
+        if (err) throw err;
+        resolve();
+      })
+      conReturn.push(cr);
     })
     Promise.all(conReturn)
     .then(() => {
@@ -205,6 +238,22 @@ const handleDel = ctx => {
   })
 }
 
-const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, getBusiness, getFormList, addForm, delForm}
+const delData = ctx => {
+  return new Promise(resolve => {
+    const {id} = ctx.request.body;
+    const sql = `DELETE FROM df_form_data WHERE row_id=?`;
+
+    connection.query(sql, [id], (err, result) => {
+      if (err) throw err;
+      ctx.body = {
+        code: 0,
+        msg: '删除成功!'
+      };
+      resolve()
+    })
+  })
+}
+
+const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, getBusiness, getFormList, addForm, delForm, getFormInfo, getFormData, delData}
 module.exports = coll;
 

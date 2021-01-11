@@ -18,7 +18,10 @@ const {
   getBusiness,
   getFormList,
   addForm,
-  delForm
+  delForm,
+  getFormInfo,
+  getFormData,
+  delData
 } = require('./controlers/index');
 
 // Json Prettier middleware
@@ -47,6 +50,12 @@ router.get('/getFormList', getFormList);
 router.post('/addForm', addForm);
 
 router.post('/delForm', delForm);
+
+router.get('/getFormInfo', getFormInfo);
+
+router.get('/getFormData', getFormData);
+
+router.post('/delData', delData);
 
 // Simple Middleware Example
 // app.use(async (ctx) => (ctx.body = "hello world!"));
