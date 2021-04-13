@@ -21,7 +21,9 @@ const {
   delForm,
   getFormInfo,
   getFormData,
-  delData
+  delData,
+  myFormLists,
+  getFormUnitInfo,
 } = require('./controlers/index');
 
 // Json Prettier middleware
@@ -56,6 +58,10 @@ router.get('/getFormInfo', getFormInfo);
 router.get('/getFormData', getFormData);
 
 router.post('/delData', delData);
+// 我的填报
+router.get('/myForm', myFormLists);
+// 表单单元
+router.get('/getUnit', getFormUnitInfo);
 
 // Simple Middleware Example
 // app.use(async (ctx) => (ctx.body = "hello world!"));

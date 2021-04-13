@@ -45,6 +45,24 @@ const getBusiness = ctx => {
     })
   })
 }
+// 我的填报
+const myFormLists = ctx => {
+  return new Promise(resolve => {
+    let {id, page, pageSize} = ctx.query;
+    console.log(page, pageSize)
+    let sql = `SELECT * FROM ff_join_form limit ?,?;`;
+    let values =  [page - 1, +pageSize];
+
+    connection.query(sql, values,  (err, result) => {
+      if (err) throw err;
+      ctx.body = {
+        code: 0,
+        data: result
+      }
+      resolve();
+    })
+  })
+}
 // 获取表单信息
 const getFormInfo = ctx => {
   return new Promise(resolve => {
@@ -52,6 +70,31 @@ const getFormInfo = ctx => {
     const sql = `SELECT * FROM df_form WHERE id=${id}`;
     connection.query(sql, (err, result) => {
       if (err) throw err;
+      ctx.body = {
+        code: 0,
+        data: result[0]
+      }
+      resolve();
+    })
+  })
+}
+// 获取表单单元信息
+const getFormUnitInfo = ctx => {
+  return new Promise(resolve => {
+    let id = ctx.query.id;
+    const sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
+    connection.query(sql, (err, result) => {
+      if (err) throw err;
+      if (result[0]) {
+        if (result[0].fields) {
+          const fieldsArr = result[0].fields.split(",");
+          fieldsArr.forEach(item => {
+            // TODO: 获取控件
+            // const s_sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
+          })
+        }
+      }
+      
       ctx.body = {
         code: 0,
         data: result[0]
@@ -254,6 +297,10 @@ const delData = ctx => {
   })
 }
 
-const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, getBusiness, getFormList, addForm, delForm, getFormInfo, getFormData, delData}
+const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, getBusiness, getFormList, addForm, delForm, getFormInfo, getFormData, delData,
+  myFormLists,
+  getFormUnitInfo,
+
+}
 module.exports = coll;
 
