@@ -49,7 +49,6 @@ const getBusiness = ctx => {
 const myFormLists = ctx => {
   return new Promise(resolve => {
     let {id, page, pageSize} = ctx.query;
-    console.log(page, pageSize)
     let sql = `SELECT * FROM ff_join_form limit ?,?;`;
     let values =  [page - 1, +pageSize];
 
@@ -85,21 +84,36 @@ const getFormUnitInfo = ctx => {
     const sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
     connection.query(sql, (err, result) => {
       if (err) throw err;
+      let data = {};
       if (result[0]) {
+        data = result[0];
         if (result[0].fields) {
           const fieldsArr = result[0].fields.split(",");
-          fieldsArr.forEach(item => {
-            // TODO: 获取控件
-            // const s_sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
+          data.controller = [];
+          
+          let p = fieldsArr.map(item => {
+            return new Promise(function(resolve) {
+              const s_sql = `SELECT * FROM df_form_field WHERE id=${item}`;
+              connection.query(s_sql, (err, r) => {
+                if (err) throw err;
+                resolve(r[0])
+              })
+            })
           })
+          Promise.all(p).then(value =>{
+            data.controller = value.filter(i => !!i !== false);
+            ctx.body = {
+              code: 0,
+              data
+            }
+            resolve()
+          })
+        } else {
+          
         }
+      } else {
+        
       }
-      
-      ctx.body = {
-        code: 0,
-        data: result[0]
-      }
-      resolve();
     })
   })
 }
@@ -124,7 +138,6 @@ const getFormData = ctx => {
 const getFormList = ctx => {
   return new Promise(resolve => {
     let {id, page, pageSize} = ctx.query;
-    console.log(page, pageSize)
     let sql = '';
     let values;
     if (id) {
@@ -162,8 +175,25 @@ const getLists = ctx => {
   })
 }
 
+// 获取跟踪列表
+const getCollects = ctx => {
+  return new Promise(resolve => {
+    let {page, pageSize, formId} = ctx.query;
+    const sql = `SELECT * FROM ff_follow_form limit ?,?`;
+    let values = [(page * pageSize) - pageSize, +pageSize]
+    connection.query(sql, values, (err, result) => {
+      if (err) throw err;
+      ctx.body = {
+        code: 0,
+        data: result
+      }
+      resolve();
+    })
+  })
+}
+
 const addData = ctx => {
-  console.log(ctx.request.body);
+  // console.log(ctx.request.body);
   return new Promise(resolve => {
     let {name, placeholder, defaultValue, select, options, sort, required, fid, field, formId} = ctx.request.body;
     const sql = `INSERT INTO dynamic_config(code, name, placeholder, default_value, options, sort, isRequired, fid, field, form_id)
@@ -186,7 +216,6 @@ const addData = ctx => {
  * @param {*} ctx 
  */
 const addForm = ctx => {
-  console.log(ctx.request.body);
   return new Promise(resolve => {
     let {name, business, created_date, update_date} = ctx.request.body;
     // if (!created_date) {
@@ -245,7 +274,6 @@ const handleSave = ctx => {
   return new Promise(resolve => {
     let bd = ctx.request.body;
     let conReturn = [];
-    console.log(bd)
     Object.keys(bd).forEach(item => {
       let sql = `INSERT INTO df_form_data(form_id, field_name, row_id, value)
     VALUES (?, ?, ?, ?)`;
@@ -300,6 +328,7 @@ const delData = ctx => {
 const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, getBusiness, getFormList, addForm, delForm, getFormInfo, getFormData, delData,
   myFormLists,
   getFormUnitInfo,
+  getCollects,
 
 }
 module.exports = coll;
