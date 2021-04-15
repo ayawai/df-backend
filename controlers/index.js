@@ -49,7 +49,10 @@ const getBusiness = ctx => {
 const myFormLists = ctx => {
   return new Promise(resolve => {
     let {id, page, pageSize} = ctx.query;
-    let sql = `SELECT * FROM ff_join_form limit ?,?;`;
+    // let sql = `SELECT * FROM ff_join_form limit ?,?;`;
+    // TODO: user_id暂时用2
+    let sql = `SELECT * FROM ff_fill_user r LEFT JOIN ff_form f ON f.id=r.task_id WHERE r.user_id=2 limit ?,?;`;
+
     let values =  [page - 1, +pageSize];
 
     connection.query(sql, values,  (err, result) => {
@@ -179,15 +182,38 @@ const getLists = ctx => {
 const getCollects = ctx => {
   return new Promise(resolve => {
     let {page, pageSize, formId} = ctx.query;
-    const sql = `SELECT * FROM ff_follow_form limit ?,?`;
-    let values = [(page * pageSize) - pageSize, +pageSize]
+    // TODO: publisher暂时固定1
+    
+    const sql =`SELECT * FROM ff_form where publisher=1 ${formId ? "and id=?" : ""} limit ?,?`;
+    const s_sql = `SELECT user_id, state, operation_date FROM ff_form LEFT JOIN ff_fill_user ON ff_fill_user.task_id=ff_form.id where publisher=1  ${formId ? "and id=?" : ""} limit ?,?`;
+
+
+    let values = [(page * pageSize) - pageSize, +pageSize];
+    if (formId) {
+      values = [formId, (page * pageSize) - pageSize, +pageSize];
+    }
     connection.query(sql, values, (err, result) => {
       if (err) throw err;
-      ctx.body = {
-        code: 0,
-        data: result
-      }
-      resolve();
+      let p = result.map(item => {
+        return new Promise(resolve =>{
+          connection.query(s_sql, values, (err, res) => {
+            const allData = {
+              ...item,
+              children: res
+            }
+            resolve(allData)
+          })
+        })
+      })
+
+      Promise.all(p).then(val => {
+        ctx.body = {
+          code: 0,
+          data: val
+        }
+        resolve()
+      })
+      
     })
   })
 }
