@@ -48,10 +48,8 @@ const getBusiness = ctx => {
 // 我的填报
 const myFormLists = ctx => {
   return new Promise(resolve => {
-    let {id, page, pageSize} = ctx.query;
-    // let sql = `SELECT * FROM ff_join_form limit ?,?;`;
-    // TODO: user_id暂时用2
-    let sql = `SELECT * FROM ff_fill_user r LEFT JOIN ff_form f ON f.id=r.task_id WHERE r.user_id=2 limit ?,?;`;
+    let {userId, page, pageSize} = ctx.query;
+    let sql = `SELECT * FROM ff_fill_user r LEFT JOIN ff_form f ON f.id=r.task_id WHERE r.user_id=1 limit ?,?;`;
 
     let values =  [page - 1, +pageSize];
 
@@ -85,32 +83,45 @@ const getFormUnitInfo = ctx => {
   return new Promise(resolve => {
     let id = ctx.query.id;
     const sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
+    const ss_sql = `SELECT * FROM df_form_field s WHERE p_id=${id}`;
+    
+
     connection.query(sql, (err, result) => {
       if (err) throw err;
       let data = {};
       if (result[0]) {
         data = result[0];
-        if (result[0].fields) {
-          const fieldsArr = result[0].fields.split(",");
+        if (result[0]) {
+          // const fieldsArr = result[0].fields.split(",");
           data.controller = [];
-          
-          let p = fieldsArr.map(item => {
-            return new Promise(function(resolve) {
-              const s_sql = `SELECT * FROM df_form_field WHERE id=${item}`;
-              connection.query(s_sql, (err, r) => {
-                if (err) throw err;
-                resolve(r[0])
-              })
-            })
-          })
-          Promise.all(p).then(value =>{
-            data.controller = value.filter(i => !!i !== false);
+          connection.query(ss_sql, (err, r) => {
+            if (err) throw err;
+            data.controller = r;
             ctx.body = {
               code: 0,
               data
             }
             resolve()
           })
+          // let p = fieldsArr.map(item => {
+          //   return new Promise(function(resolve) {
+          //     const s_sql = `SELECT * FROM df_form_field WHERE id=${item}`;
+          //     connection.query(s_sql, (err, r) => {
+          //       if (err) throw err;
+          //       resolve(r[0])
+          //     })
+          //   })
+          // })
+          // Promise.all(p).then(value =>{
+          //   data.controller = value.filter(i => !!i !== false);
+          //   ctx.body = {
+          //     code: 0,
+          //     data
+          //   }
+          //   resolve()
+          // })
+
+          
         } else {
           
         }
@@ -237,6 +248,30 @@ const addData = ctx => {
     })
   })
 }
+
+/**
+ * 保存字段
+ * @param {*} ctx 
+ * @returns 
+ */
+const saveField = ctx => {
+  return new Promise(resolve => {
+    console.log(ctx.request)
+    let b = ctx.request.body;
+    const sql = `INSERT INTO df_form_field(${Object.keys(b).join(",")}) VALUES (?)`;
+    const values = Object.keys(b).map(j => b[j]);
+    connection.query(sql, [values], (err, result) => {
+      if (err) throw err;
+      
+      ctx.body = {
+        code: 0,
+        msg: "提交成功"
+      }
+      resolve()
+    })
+  })
+}
+
 /**
  * 新增表单
  * @param {*} ctx 
@@ -355,6 +390,7 @@ const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, get
   myFormLists,
   getFormUnitInfo,
   getCollects,
+  saveField,
 
 }
 module.exports = coll;
