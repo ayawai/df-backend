@@ -195,8 +195,10 @@ const getCollects = ctx => {
     let {page, pageSize, formId} = ctx.query;
     // TODO: publisher暂时固定1
     
-    const sql =`SELECT * FROM ff_form where publisher=1 ${formId ? "and id=?" : ""} limit ?,?`;
-    const s_sql = `SELECT user_id, state, operation_date FROM ff_form LEFT JOIN ff_fill_user ON ff_fill_user.task_id=ff_form.id where publisher=1  ${formId ? "and id=?" : ""} limit ?,?`;
+    // const sql =`SELECT * FROM ff_form where publisher=1 ${formId ? "and id=?" : ""} limit ?,?`;
+    const sql =`SELECT f.deadline, f.desc, f.id, f.publisher, f.status task_status, d.id form_id, f.task_name, task_form, d.status form_status FROM ff_form f LEFT JOIN df_form d ON f.task_form=d.id where publisher=1 ${formId ? "and f.id=?" : ""} limit ?,?`;
+
+    const s_sql = `SELECT user_id, state, operation_date FROM ff_form LEFT JOIN ff_fill_user ON ff_fill_user.task_id=ff_form.id where publisher=1 ${formId ? "and id=?" : ""} limit ?,?`;
 
 
     let values = [(page * pageSize) - pageSize, +pageSize];
