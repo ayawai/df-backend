@@ -25,7 +25,8 @@ const {
   myFormLists,
   getFormUnitInfo,
   getCollects,
-  saveField
+  saveField,
+  trackFormLists
 } = require('./controlers/index');
 
 // Json Prettier middleware
@@ -65,7 +66,8 @@ router.get('/myForm', myFormLists);
 // 表单单元
 router.get('/getUnit', getFormUnitInfo);
 // 收集的表单
-router.get('/getCollects', getCollects);
+// router.get('/getCollects', getCollects);
+router.get('/getCollects', trackFormLists);
 // 保存字段
 router.post('/saveField', saveField)
 

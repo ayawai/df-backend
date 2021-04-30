@@ -5,7 +5,7 @@ const connection = mysql.createConnection({
   port: "3306",
   user: "root",
   password: "aptMes123",
-  database: "config_dynamic",
+  database: "tbpt",
   multipleStatements: true
 });
 
@@ -45,13 +45,13 @@ const getBusiness = ctx => {
     })
   })
 }
-// 我的填报
+// 待办填报列表
 const myFormLists = ctx => {
   return new Promise(resolve => {
     let {userId, page, pageSize} = ctx.query;
-    let sql = `SELECT * FROM ff_fill_user r LEFT JOIN ff_form f ON f.id=r.task_id WHERE r.user_id=1 limit ?,?;`;
+    let sql = `SELECT * FROM ff_form_mains f LEFT JOIN ff_form_assignments r ON f.form_id=r.form_id WHERE f.form_status=2 and r.filled_by=? limit ?,?;`;
 
-    let values =  [page - 1, +pageSize];
+    let values =  [userId, page - 1, +pageSize];
 
     connection.query(sql, values,  (err, result) => {
       if (err) throw err;
@@ -63,11 +63,47 @@ const myFormLists = ctx => {
     })
   })
 }
+// 获取跟踪列表
+const trackFormLists = ctx => {
+  return new Promise(resolve => {
+    let {userId, page, pageSize} = ctx.query;
+    let sql = `SELECT * FROM ff_form_mains f WHERE f.created_by=? limit ?,?;`;
+    // const s_sql = `SELECT user_id, state, operation_date FROM ff_form LEFT JOIN ff_fill_user ON ff_fill_user.task_id=ff_form.id where publisher=1 ${formId ? "and id=?" : ""} limit ?,?`;
+    const s_sql = `SELECT * FROM ff_form_mains fm LEFT JOIN ff_form_assignments fa ON fa.form_id=fm.form_id where fm.created_by=? limit ?,?`;
+
+    let values =  [userId, page - 1, +pageSize];
+
+    connection.query(sql, values,  (err, result) => {
+      if (err) throw err;
+
+      let p = result.map(item => {
+        return new Promise(resolve =>{
+          connection.query(s_sql, values, (err, res) => {
+            const allData = {
+              ...item,
+              assignments: res
+            }
+            resolve(allData)
+          })
+        })
+      })
+
+      Promise.all(p).then(val => {
+        ctx.body = {
+          code: 0,
+          data: val
+        }
+        resolve()
+      })
+
+    })
+  })
+}
 // 获取表单信息
 const getFormInfo = ctx => {
   return new Promise(resolve => {
     let id = ctx.query.id;
-    const sql = `SELECT * FROM df_form WHERE id=${id}`;
+    const sql = `SELECT * FROM ff_form_mains WHERE form_id=${id}`;
     connection.query(sql, (err, result) => {
       if (err) throw err;
       ctx.body = {
@@ -78,8 +114,42 @@ const getFormInfo = ctx => {
     })
   })
 }
-// 获取表单单元信息
 const getFormUnitInfo = ctx => {
+  return new Promise(resolve => {
+    let id = ctx.query.id;
+    const sql = `SELECT * FROM ff_form_units WHERE form_id=${id}`;
+    const ss_sql = `SELECT * FROM ff_form_fields s WHERE field_id=?`;
+    connection.query(sql, (err, result) => {
+      if (err) throw err;
+      if (result.length) {
+        let ps = result.map(item => {
+          return new Promise(resolved => {
+            connection.query(ss_sql, [item.unit_id], (err, r) => {
+              if (err) throw err;
+              item.fields = r;
+              resolved(item)
+            })
+          })
+        })
+        Promise.all(ps).then(re => {
+          ctx.body = {
+            code: 0,
+            data: re
+          }
+          resolve();
+        })
+      } else {
+        ctx.body = {
+          code: 0,
+          data: []
+        }
+        resolve();
+      }
+    })
+  })
+}
+// 获取表单单元信息
+const getFormUnitInfo_bak = ctx => {
   return new Promise(resolve => {
     let id = ctx.query.id;
     const sql = `SELECT * FROM df_form_unit WHERE id=${id}`;
@@ -189,7 +259,7 @@ const getLists = ctx => {
   })
 }
 
-// 获取跟踪列表
+// 获取收集列表
 const getCollects = ctx => {
   return new Promise(resolve => {
     let {page, pageSize, formId} = ctx.query;
@@ -258,7 +328,6 @@ const addData = ctx => {
  */
 const saveField = ctx => {
   return new Promise(resolve => {
-    console.log(ctx.request)
     let b = ctx.request.body;
     const sql = `INSERT INTO df_form_field(${Object.keys(b).join(",")}) VALUES (?)`;
     const values = Object.keys(b).map(j => b[j]);
@@ -279,23 +348,68 @@ const saveField = ctx => {
  * @param {*} ctx 
  */
 const addForm = ctx => {
+  let {form_title, deadline, form_desc, form_status, units} = ctx.request.body;
+
   return new Promise(resolve => {
-    let {name, business, created_date, update_date} = ctx.request.body;
-    // if (!created_date) {
-    //   created_date = new Date();
-    // }
-    const sql = `INSERT INTO df_form(name, fid, created_date, update_date) VALUES ?`;
-    const values = [
-      [name, business, created_date, update_date]
-    ];
-    connection.query(sql, [values], (err, result) => {
-      if (err) throw err;
-      ctx.body = {
-        code: 0,
-        msg: `添加成功！` 
+    const count_sql = `SELECT COUNT(8) count FROM ff_form_mains`;
+    let formId;
+    new Promise(s_resolve => {
+      connection.query(count_sql, (err, result) => {
+        if (err) throw err;
+        formId = result[0].count + 1
+        s_resolve()
+      })
+    }).then(() => {
+      const sql = `INSERT INTO ff_form_mains(form_id, form_title, deadline, form_desc, form_status, publication_date, creation_date, created_by, last_updated_by, last_update_date) VALUES ?`;
+      const values = [
+        [formId, form_title, deadline, form_desc, form_status || '2', new Date(), new Date(), 1, 1, new Date()]
+      ];
+      connection.query(sql, [values], (err, result) => {
+        if (err) throw err;
+        console.log('formId1', formId);
+        return formId
+      })
+    }).then(() => {
+      if (units && units.length) {
+        const ps = units.map(item => {
+          return new Promise(unit_resolve => {
+            const { unit_title, order_no, unit_desc, unit_type } = item;
+            const sql = `INSERT INTO 
+            ff_form_units(form_id, unit_title, order_no, unit_desc, unit_type, bind_table, created_by, creation_date) 
+            VALUES ?`
+            const values = [
+              [formId, unit_title, order_no, unit_desc, unit_type, '1', 1, new Date()]
+            ];
+            connection.query(sql, [values], (err, result) => {
+              if (err) throw err;
+              unit_resolve()
+            })
+          })
+        })
+        Promise.all(ps).then(res => {
+          console.log('res', res);
+          // const sql = `INSERT INTO 
+          //   ff_form_units(form_id, title, unit_line_id, tip, ui_type, reference_values, mandatory, default_value, attachment, bind_field_code, need_statistics, statistical_formula, comments) 
+          //   VALUES ?`
+          ctx.body = {
+            code: 0,
+            message: `添加成功！`,
+            data: true
+          }
+          resolve();
+        })
+
+        
+      } else {
+        ctx.body = {
+          code: 1,
+          message: `请添加单元信息！`,
+          data: true
+        }
+        resolve();
       }
-      resolve();
     })
+    
   })
 }
 /**
@@ -311,7 +425,8 @@ const delForm = ctx => {
       if (err) throw err;
       ctx.body = {
         code: 0,
-        msg: `删除成功！`
+        message: `删除成功！`,
+        data: true
       };
       resolve();
     })
@@ -393,6 +508,7 @@ const coll = {getLists, handleDel, handleSort, addData, handleSave, getUser, get
   getFormUnitInfo,
   getCollects,
   saveField,
+  trackFormLists,
 
 }
 module.exports = coll;
