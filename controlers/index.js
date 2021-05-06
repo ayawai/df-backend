@@ -370,44 +370,70 @@ const addForm = ctx => {
         return formId
       })
     }).then(() => {
-      if (units && units.length) {
-        const ps = units.map(item => {
-          return new Promise(unit_resolve => {
-            const { unit_title, order_no, unit_desc, unit_type } = item;
-            const sql = `INSERT INTO 
-            ff_form_units(form_id, unit_title, order_no, unit_desc, unit_type, bind_table, created_by, creation_date) 
-            VALUES ?`
-            const values = [
-              [formId, unit_title, order_no, unit_desc, unit_type, '1', 1, new Date()]
-            ];
-            connection.query(sql, [values], (err, result) => {
-              if (err) throw err;
-              unit_resolve()
+      const count_units_sql = `SELECT COUNT(8) count FROM ff_form_units`;
+      let unitId;
+      new Promise(s_resolve => {
+        connection.query(count_units_sql, (err, result) => {
+          if (err) throw err;
+          unitId = result[0].count + 1
+          s_resolve(unitId)
+        })
+        console.log('unitId', unitId);
+      }).then(() => {
+        if (units && units.length) {
+          const ps = units.map(item => {
+            return new Promise(unit_resolve => {
+              const { unit_title, order_no, unit_desc, unit_type } = item;
+  
+              let sql = `INSERT INTO 
+              ff_form_units(unit_id, form_id, unit_title, order_no, unit_desc, unit_type, bind_table, created_by, creation_date) 
+              VALUES ?;`
+  
+              let values_unit = [
+                [unitId, formId, unit_title, order_no, unit_desc, unit_type, '1', 1, new Date()]
+              ];
+              let param = [values_unit]
+              if (item.controller && item.controller.length) {
+                item.controller.forEach((j, k) => {
+                  const {unit_line_id, label: title, placeholder: tip, controller: ui_type, lov: reference_values, isRequired: mandatory, defaultValue: default_value, attachment = "", bind_field_code = 1, need_statistics = 1, statisticType: statistical_formula, mark: comments} = j;
+                  sql += `INSERT INTO ff_form_fields(form_id, unit_id, unit_line_id, title, tip, ui_type, reference_values, mandatory, default_value, attachment, bind_field_code, need_statistics, statistical_formula, comments, created_by, creation_date)
+                  VALUES ?;`
+                  let values_fields = [
+                    [formId, unitId, k, title, tip, ui_type, reference_values, mandatory, default_value, attachment, bind_field_code, need_statistics, statistical_formula, comments, 1, new Date()]
+                  ]
+                  param.push(values_fields)
+                })
+              }
+              
+              connection.query(sql, param, (err, result) => {
+                if (err) throw err;
+                unit_resolve()
+              })
             })
           })
-        })
-        Promise.all(ps).then(res => {
-          console.log('res', res);
-          // const sql = `INSERT INTO 
-          //   ff_form_units(form_id, title, unit_line_id, tip, ui_type, reference_values, mandatory, default_value, attachment, bind_field_code, need_statistics, statistical_formula, comments) 
-          //   VALUES ?`
+          Promise.all(ps).then(res => {
+            console.log('res', res);
+            // const sql = `INSERT INTO 
+            //   ff_form_units(form_id, title, unit_line_id, tip, ui_type, reference_values, mandatory, default_value, attachment, bind_field_code, need_statistics, statistical_formula, comments) 
+            //   VALUES ?`
+            ctx.body = {
+              code: 0,
+              message: `添加成功！`,
+              data: true
+            }
+            resolve();
+          })
+  
+          
+        } else {
           ctx.body = {
-            code: 0,
-            message: `添加成功！`,
+            code: 1,
+            message: `请添加单元信息！`,
             data: true
           }
           resolve();
-        })
-
-        
-      } else {
-        ctx.body = {
-          code: 1,
-          message: `请添加单元信息！`,
-          data: true
         }
-        resolve();
-      }
+      })
     })
     
   })
